@@ -1,10 +1,11 @@
-﻿#pragma comment(lib, "qwave.lib")
-#pragma comment(lib, "ws2_32.lib")
-
-#include <iostream>
+﻿#include <iostream>
 #include <winsock2.h>
 #include <mswsock.h>
 #include <qos2.h>
+
+#pragma comment(lib, "qwave.lib")
+#pragma comment(lib, "ws2_32.lib")
+#pragma warning(disable:4996)
 
 #define BUFLEN      1400
 #define PORT        5021
@@ -40,10 +41,11 @@ socketCreate(
     // First attempt to convert the string to an IPv4 address
     sockaddrLen = sizeof(destAddr);
     destAddr.ss_family = AF_INET;
+
     returnValue = WSAStringToAddressW(destination,
         AF_INET, NULL, (LPSOCKADDR)&destAddr, &sockaddrLen);
     if (returnValue != ERROR_SUCCESS) {
-        printf("%s:%d - WSAStringToAddressA failed (%d)\n",
+        printf("%s:%d - WSAStringToAddressW failed (%d)\n",
             __FILE__, __LINE__, WSAGetLastError());
         exit(1);
     }
@@ -96,6 +98,7 @@ int main(
     BOOL                        result;
 
     ULONG temp;
+    wchar_t dest[255];
 
     if (argc != 3) {
         printf("Usage: %s <ipv4_address> <dscp_value>\n", __FILE__);
@@ -103,7 +106,8 @@ int main(
     }
 
     // Create a UDP socket
-    socketCreate((LPWSTR) argv[1], &socket, &addressFamily, &transmitPacketsFn);
+    std::mbstowcs(dest, argv[1], strlen(argv[1]) + 1);
+    socketCreate((LPWSTR) dest, &socket, &addressFamily, &transmitPacketsFn);
 
     // Initialize the QoS subsystem
     if (FALSE == QOSCreateHandle(&QosVersion, &qosHandle)) {
@@ -115,7 +119,7 @@ int main(
     // Create a flow for our socket
     flowID = 0;
     result = QOSAddSocketToFlow(qosHandle,
-        socket, NULL, QOSTrafficTypeBestEffort, 0, &flowID);
+        socket, NULL, QOSTrafficTypeBestEffort, QOS_NON_ADAPTIVE_FLOW, &flowID);
     if (result == FALSE) {
         printf("%s:%d - QOSAddSocketToFlow failed (%d)\n",
             __FILE__, __LINE__, GetLastError());
